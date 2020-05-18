@@ -1,0 +1,83 @@
+<html>
+<head>
+    <title>Simple DApp</title>
+    <script type="text/javascript" src="web3.js"></script>
+
+    <script type="text/javascript">
+        // Reemplaza esto por la direccion del contrato desplegado
+        var contract_address = "0x5E10c1f77d7E2FaB8557Ff01CC72d5d381f0d844";
+        
+        // Interfaz del contrato. Se puede dejar como está si no se ha cambiado el contrato
+        var contract_abi = [{"constant":false,"inputs":[{"name":"newMessage","type":"string"}],"name":"setMessage","outputs":[],"payable":false,"type":"function","stateMutability":"nonpayable"},{"constant":true,"inputs":[],"name":"message","outputs":[{"name":"","type":"string"}],"payable":false,"type":"function","stateMutability":"view"},{"inputs":[{"name":"initialMessage","type":"string"}],"payable":false,"type":"constructor","stateMutability":"nonpayable"}]
+        
+        // Localizacion del nodo de Ethereum. Dejar como esta si se esta usando un nodo local
+        web3 = new Web3(new Web3.providers.HttpProvider("http://127.0.0.1:8545"));
+        
+        // Crear la instancia del contrato
+        var contract_instance = web3.eth.contract(contract_abi).at(contract_address);
+        console.log(contract_instance)
+
+        // Desbloque la cuenta principal. En caso de tener clave, ponerla en el segundo parametro.
+        // Esto es solo una demo. Para entornos productivos, se debe obtener esta clave a traves de un login seguro
+        web3.personal.unlockAccount(web3.eth.accounts[0], '', 0);
+
+        // Actualiza el mensaje en la pantalla.        
+        function updateStatusFromContract(message) {   
+            document.getElementById("status").innerText = message;
+        }
+        
+        // Obtiene el mensaje actual de la blockchain
+        function getMessage() {            
+            contract_instance.message.call({from: web3.eth.accounts[0]}, function(error, result) {
+                if(error) {
+                    console.error(error);
+                } else {
+                    console.log("message:"+result);
+		            updateStatusFromContract(result);
+                }
+            });
+        }
+
+        // Actualiza el mensaje en la blockchain
+        function setMessage(message) {            
+            contract_instance.setMessage(message, {from: web3.eth.accounts[0]}, function(error, result) {
+                if(error) {
+                    console.error(error);
+                } else {
+                    var hash = result;
+                    console.log("hash:"+hash);
+                    checkHashStatus(hash, message, updateStatusFromContract);
+                }
+            });
+        }
+
+        // Espera a que se mine un bloque con la transaccion ejecutada
+        function checkHashStatus(hash, message, callback) {
+            web3.eth.getTransactionReceipt(hash, function(error, rcpt) {
+                if(error) {
+                    console.error(error);
+                } else {
+                    if(rcpt == null) {
+                        setTimeout(function() {
+                            checkHashStatus(hash, message, callback);
+                        }, 1000);
+                    } else {
+                        console.log(rcpt)
+                        callback(message);
+                    }
+                }
+            })
+        }
+    </script>
+</head>
+<body>
+<h1>Simple DApp</h1>
+
+<button onclick="getMessage()">Obtener el mensaje</button><span id="status"></span>
+
+<br/><br/>
+
+<input type="text" id="inputmessage" name="inputmessage"><button onclick="setMessage(inputmessage.value)">Enviar el mensaje</button>
+
+</body>
+</html>
